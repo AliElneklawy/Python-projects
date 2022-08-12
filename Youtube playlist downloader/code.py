@@ -1,24 +1,23 @@
-from collections import deque
+from collections import deque   #for creating queues
 from fileinput import filename
 from os import system, sys
 from time import sleep
 from pytube import YouTube, Playlist
 import pyinputplus as pyip  # for input validation
-import moviepy.editor as movie
+import moviepy.editor as movie  # for converting mp4 to mp3
 from tkinter.filedialog import askdirectory, Tk # select folders
 from tkinter import filedialog as fd 
 
-undownloaded_vids = deque() # creating a queue of the urls of the videos that were not downloaded. first added url, first downloaded
-undownloaded_vids_urls = deque()
+undownloaded_vids_urls = deque()    # creating a queue of the urls of the videos that were not downloaded. first added url, first downloaded
 root = Tk() # pointing root to Tk() to use it as Tk() in program.
 root.withdraw() # Hides small tkinter window.
 root.attributes('-topmost', True) # Opened windows will be active. above all windows despite of selection.
 Qualities = ["240", "360p", "480p", "720p"]
 
-def quality_menu():
+def quality_menu(): # display the quality menu
     return pyip.inputMenu(Qualities, "Choose the quality: \n", numbered=True)
 
-def show_info(yt, choice, quality = "720p"):
+def show_info(yt, choice, quality = "720p"):    #File info. choice = 1 for videos, cboice = 3 for audios
     if choice == 1:
         print(f"""\n
             Title: {yt.title}
@@ -27,7 +26,7 @@ def show_info(yt, choice, quality = "720p"):
             Size: {round((yt.streams.get_by_resolution(quality).filesize)/1024/1024, 2)} MB
             """)
     elif choice == 3:
-        print(f"""
+        print(f"""\n
             Title: {yt.title}
             Duration: {round(yt.length/60)} minutes
             Number of views: {yt.views:,} views
@@ -47,41 +46,46 @@ def progress_function(chunk, file_handle, bytes_remaining):     # function to sh
     sys.stdout.write(' ↳ |{bar}| {percent}%\r'.format(bar=status, percent=percent))
     sys.stdout.flush()
 
-def undownloaded_videos(undownloaded_vids, undownloaded_vids_urls, quality, file_path):
-    #print(f"\nThe following videos were not downloaded because they are not available in {quality}: ")
-    # print the names of the videos that were not downloaded
-    #for i in undownloaded_vids:
-    #    print(f"{i}")
+def undownloaded_videos(undownloaded_vids_urls, quality, file_path): 
+    #=============================================================================
+    # Videos that were not downloaded for any reason will be handeled here
+    # undownloaded_vids: list of the names of the undownloaded videos
+    # undownloaded_vids_urls: list of the URLs of the undownloaded videos
+    #=============================================================================
     choice = pyip.inputMenu(["Re-download the videos that were not downloaded", "Return"], "\nDo you want to download them again? \n", numbered=True)
     if choice == "Re-download the videos that were not downloaded":
         i = -1
-        #quality = quality_menu()
-        while undownloaded_vids_urls != deque([]):
+        while undownloaded_vids_urls != deque([]):  #try all the available qualities on the video
             check = Video_downloader(undownloaded_vids_urls[0], Qualities[i], file_path)
-            #undownloaded_vids.popleft()
-            if check == 1:
+            if check == 1:  # video not downloaded
                 undownloaded_vids_urls.pop()
-                i-=1
+                i-=1    #try the next quality in the array
                 if i == -5:
-                    print(f"Could not download: {YouTube(undownloaded_vids_urls[0]).title}")
+                    print(f"Could not download: {YouTube(undownloaded_vids_urls[0]).title}")    #all the qualities didn't work
                     undownloaded_vids_urls.popleft()
                     i = -1
             else:
                 undownloaded_vids_urls.popleft()
                 i = -1
     elif choice == "Return":
-        #undownloaded_vids.clear()
         undownloaded_vids_urls.clear()
         return
 
 def Video_downloader(url, quality, file_path, i = ""):
+    #============================================================
+    # Download videos from youtube
+    # :param url: URL of the video
+    # :param quality: the quality chosen by the user
+    # :param file_path: the file path to save the files
+    # :param i: used to number the videos when downloading playlists, default = "" for downloading one video
+    #============================================================
     yt = YouTube(url, on_progress_callback = progress_function)
     yt.streams.filter(progressive=True, file_extension="mp4").all()
     stream = yt.streams.get_by_resolution(quality)  # returns type stream if the quality is available else None
     if not stream:
         #undownloaded_vids.append(f"{i} {yt.title}")
         undownloaded_vids_urls.append(url)
-        print(f"Could not download video: {yt.title}. Quality {quality}p not available.")
+        print(f"Could not download video: {yt.title}. Quality {quality} not available.")
         # skip and download next video
         return 1
     show_info(yt, 1, quality)
@@ -89,6 +93,12 @@ def Video_downloader(url, quality, file_path, i = ""):
     return 2
 
 def Playlist_downlaoder(url, quality, file_path):
+    #============================================================
+    # Download playlists from youtube
+    # :param url: URL of the playlist
+    # :param quality: the quality chosen by the user
+    # :param file_path: the file path to save the files
+    #============================================================
     yt = Playlist(url)
     if(len(yt.video_urls) == 1):
         Video_downloader(yt.video_urls[0])
@@ -108,11 +118,15 @@ def Playlist_downlaoder(url, quality, file_path):
     elif all_some == "All":
         for i in range(1, yt.length+1):
             Video_downloader(yt.video_urls[i-1], quality, file_path, i) 
-    
+ 
 def extract_audio(url):
+    #=========================================
+    # Download audio from youtube
+    # :param url: the url of the youtube video
+    #=========================================
     yt = YouTube(url, on_progress_callback=progress_function)
     yt.streams.filter(only_audio=True).first()
-    stream = yt.streams.get_by_itag(251)
+    stream = yt.streams.get_by_itag(251)    #get the highest audio quality
     show_info(yt, 3)
     save_file = fd.askdirectory(title = "Save")
     print(f"Downloading audio: {yt.title}")
@@ -120,7 +134,7 @@ def extract_audio(url):
 
 def converter(file_path, file_name):  # video to audio converter
     clip = movie.VideoFileClip(file_path)
-    save_file = fd.askdirectory(title = "Save")
+    save_file = fd.askdirectory(title = "Save") #save to...
     clip.audio.write_audiofile(f"{save_file}/{file_name}.mp3")
     print("Conversion completed")
 
@@ -156,7 +170,7 @@ if __name__ == "__main__":
             converter(file_path, file_name)
         
         if undownloaded_vids_urls != deque([]):      # if a video was not downloaded, ask the user if he wants to download it again
-            undownloaded_videos(undownloaded_vids, undownloaded_vids_urls, quality, file_path)
+            undownloaded_videos(undownloaded_vids_urls, quality, file_path)
         
         sleep(3)
         system("cls")

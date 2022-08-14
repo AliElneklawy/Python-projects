@@ -8,6 +8,7 @@ import moviepy.editor as movie  # for converting mp4 to mp3
 from tkinter.filedialog import askdirectory, Tk # select folders
 from tkinter import filedialog as fd 
 
+
 undownloaded_vids_urls = deque()    # creating a queue of the urls of the videos that were not downloaded. first added url, first downloaded
 root = Tk() # pointing root to Tk() to use it as Tk() in program.
 root.withdraw() # Hides small tkinter window.
@@ -46,7 +47,7 @@ def progress_function(chunk, file_handle, bytes_remaining):     # function to sh
     sys.stdout.write(' ↳ |{bar}| {percent}%\r'.format(bar=status, percent=percent))
     sys.stdout.flush()
 
-def undownloaded_videos(undownloaded_vids_urls, quality, file_path): 
+def undownloaded_videos(undownloaded_vids_urls, file_path): 
     #=============================================================================
     # Videos that were not downloaded for any reason will be handeled here
     # undownloaded_vids: list of the names of the undownloaded videos
@@ -55,14 +56,14 @@ def undownloaded_videos(undownloaded_vids_urls, quality, file_path):
     choice = pyip.inputMenu(["Re-download the videos that were not downloaded", "Return"], "\nDo you want to download them again? \n", numbered=True)
     if choice == "Re-download the videos that were not downloaded":
         i = -1
-        while undownloaded_vids_urls != deque([]):  #try all the available qualities on the video
-            check = Video_downloader(undownloaded_vids_urls[0], Qualities[i], file_path)
+        while undownloaded_vids_urls != deque([]):  #try all the available qualities on each video until the queue is empty
+            check = Video_downloader(undownloaded_vids_urls[0], Qualities[i], file_path)    # pass the first url in the queue to re-download it
             if check == 1:  # video not downloaded
                 undownloaded_vids_urls.pop()
                 i-=1    #try the next quality in the array
                 if i == -5:
                     print(f"Could not download: {YouTube(undownloaded_vids_urls[0]).title}")    #all the qualities didn't work
-                    undownloaded_vids_urls.popleft()
+                    undownloaded_vids_urls.popleft()    #remove the broken url from the queue to prevent an infinite loop
                     i = -1
             else:
                 undownloaded_vids_urls.popleft()
@@ -108,16 +109,19 @@ def Playlist_downlaoder(url, quality, file_path):
         Total number of views: {yt.views:,}
         Last updated: {yt.last_updated}
     """)
+    higher_range = ""   # the default option is download to the last video in the playlist
+    lower_range = 1  # # the default option is download starting from the first video in the playlist
     all_some = pyip.inputMenu(["All", "Some"], "Download all or some videos: \n", numbered=True)
     if all_some == "Some":
         lower_range = pyip.inputNum("Download from video number: ", min=1, max=yt.length)
-        higher_range = pyip.inputNum("to video number (Leave it blank to download till the las video): ", 
-                                                                                 min=lower_range, max=yt.length, blank=True)                                                                                                    
-        for i in range(lower_range, yt.length if higher_range == "" else higher_range+1):
-            Video_downloader(yt.video_urls[i-1], quality, file_path, i)
-    elif all_some == "All":
-        for i in range(1, yt.length+1):
-            Video_downloader(yt.video_urls[i-1], quality, file_path, i) 
+        higher_range = pyip.inputNum("to video number (leave it blank to download till the last video): ", 
+                                                                                 min=lower_range+1, max=yt.length, blank=True)
+
+    for i in range(lower_range, yt.length+1 if higher_range == "" else higher_range+1):
+        Video_downloader(yt.video_urls[i-1], quality, file_path, i)
+    #elif all_some == "All":
+     #   for i in range(1, yt.length+1):
+      #      Video_downloader(yt.video_urls[i-1], quality, file_path, i) 
  
 def extract_audio(url):
     #=========================================
@@ -170,7 +174,7 @@ if __name__ == "__main__":
             converter(file_path, file_name)
         
         if undownloaded_vids_urls != deque([]):      # if a video was not downloaded, ask the user if he wants to download it again
-            undownloaded_videos(undownloaded_vids_urls, quality, file_path)
+            undownloaded_videos(undownloaded_vids_urls, file_path)
         
         sleep(3)
         system("cls")

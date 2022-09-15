@@ -1,0 +1,3 @@
+N_BALLOONS = 15
+BALLOON_MISSED = "Missed"
+BALLON_MOVING = "Ballon moving"

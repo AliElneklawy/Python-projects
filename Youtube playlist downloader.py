@@ -1,16 +1,14 @@
 from collections import deque   #for creating queues
-#from fileinput import filename
 from os import system, sys
 from os import rename
 from time import sleep
 from tkinter import filedialog as fd
 from tkinter.filedialog import  Tk # select folders
-#import multiprocessing as mp
 from pytube import YouTube, Playlist
 import pyinputplus as pyip  # for input validation
 import moviepy.editor as movie  # for converting mp4 to mp3
 from string import punctuation
-#import pyautogui
+
 
 undownloaded_vids_urls = deque()  #creating a queue of the urls of the videos that were not downloaded. first added url, first downloaded
 root = Tk() #pointing root to Tk() to use it as Tk() in program.
@@ -64,7 +62,7 @@ def undownloaded_videos(undownloaded_vids_urls, file_path):
     if choice == "Re-download the videos that were not downloaded":
         i = -1
         while undownloaded_vids_urls != deque([]):  #try all the available qualities on each video until the queue is empty
-            check = Video_downloader(undownloaded_vids_urls[0][0], Qualities[i], file_path, undownloaded_vids_urls[0][1])    # pass the first url in the queue to re-download it
+            check = Video_downloader(undownloaded_vids_urls[0][0], Qualities[i], file_path, undownloaded_vids_urls[0][1])    # pass the first url and the number of the video in the queue to re-download it
             if check == 1:  # video not downloaded
                 undownloaded_vids_urls.pop()
                 i-=1    #try the next quality in the array
@@ -161,7 +159,7 @@ def Playlist_downlaoder(url, quality, file_path):
     """)
 
     higher_range = ""   # the default option is download to the last video in the playlist
-    lower_range = 1  #the default option is download starting from the first video in the playlist
+    lower_range = 1     #the default option is download starting from the first video in the playlist
     all_some = pyip.inputMenu(["All", "Some"], "Download all or some videos: \n", numbered=True)
     if all_some == "Some":
         lower_range = pyip.inputNum("Download from video number: ", min=1, max=yt.length)
@@ -197,14 +195,6 @@ def main():
                                "Video to audio converter",
                                "Exit"], numbered= True)
     system("cls")
-    # lang='' # do not download captions by default
-    # if vid_list == "Video downloader" or vid_list == "Playlist downlaoder":
-    #     url = pyip.inputStr("Enter the url: ", blank=False)
-    #     down_cap = pyip.inputMenu(["Download captions", "Don't download captions"], "Download captions? \n", numbered=True)
-    #     if down_cap == "Download captions":
-    #        lang = available_captions(YouTube(url))    #get the available languages
-    #        #lang = pyip.inputMenu(list(langs.keys()), "Choose a language: \n", numbered=True)   # choose a language
-
 
     if vid_list == "Video downloader":
         url = pyip.inputStr("Enter the url: ", blank=False)

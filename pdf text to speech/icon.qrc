@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="icon whats">
+    <file>whatsapp-24.png</file>
+  </qresource>
+</RCC>

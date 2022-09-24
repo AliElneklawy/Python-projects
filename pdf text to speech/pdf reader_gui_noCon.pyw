@@ -1,4 +1,3 @@
-from concurrent.futures import thread
 from os.path import dirname
 import time
 import webbrowser

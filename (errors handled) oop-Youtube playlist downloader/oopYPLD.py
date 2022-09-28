@@ -116,7 +116,7 @@ class Downloader:
                 if check == 1:
                     undownloaded_vids_urls.pop()
                     i -= 1
-                    if i == -8:
+                    if i == -7:
                         undownloaded_vids_urls.popleft()
                         i = -4
                         raise DowloadErr

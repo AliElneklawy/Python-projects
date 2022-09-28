@@ -1,14 +1,18 @@
 from tkinter import filedialog as fd
 from tkinter.filedialog import Tk
-from os import system, sys, rename
+from os import remove, sys, rename, system
+from os.path import join
 from string import punctuation
 from pytube import YouTube, Playlist
 import pyinputplus as pyip
 import moviepy.editor as movie
 from constants import *
+from ffmpeg import concat, input
+
 
 class DowloadErr(Exception):
     pass
+
 
 class Downloader:
     """
@@ -30,19 +34,37 @@ class Downloader:
 
         converter(self, file_path, file_name)
     """
+
     def __init__(self) -> None:
         root = Tk()
         root.withdraw()
         root.attributes("-topmost", True)
 
+    def __check_invalid_title(self, title):
+        for char in title:
+            if char in punctuation:
+                title = title.replace(char, "")
+        return title
+
     def __show_info(self, yt, choice, quality="720p"):
+        self.quality_int = int(quality.replace("p", ""))
         if choice == 1:
             print(
                 f"""\n
                 Title: {yt.title}
                 Duration: {round(yt.length/60)} minutes
                 Number of views: {yt.views:,} views
-                Size: {round((yt.streams.get_by_resolution(quality).filesize)/1024/1024, 2)} MB
+                Size: {round((yt.streams.get_by_resolution(quality).filesize)/1024/1024, 2) 
+                        if self.quality_int == 720 or self.quality_int == 360
+                        else round((yt.streams.get_by_itag(itags[quality]).filesize)/1024/1024, 2)} MB
+                """
+            )
+        elif choice == 2:
+            print(
+                f"""\n
+                Number of videos: {yt.length}
+                Total number of views: {yt.views:,}
+                Last updated: {yt.last_updated}
                 """
             )
         elif choice == 3:
@@ -70,7 +92,6 @@ class Downloader:
         sys.stdout.write(" ↳ |{bar}| {percent}%\r".format(bar=status, percent=percent))
         sys.stdout.flush()
 
-
     def _undownloaded_videos(self, undownloaded_vids_urls, file_path):
         """
         Videos that were not downloaded for any reason will be handeled here
@@ -84,7 +105,7 @@ class Downloader:
         )
 
         if choice == "Re-download the videos that were not downloaded":
-            i = -1
+            i = -4
             while undownloaded_vids_urls != deque([]):
                 check = self.Video_downloader(
                     undownloaded_vids_urls[0][0],
@@ -95,15 +116,13 @@ class Downloader:
                 if check == 1:
                     undownloaded_vids_urls.pop()
                     i -= 1
-                    if i == -5:
-                        print(
-                            f"Could not download: {YouTube(undownloaded_vids_urls[0][0]).title}"
-                        )
+                    if i == -8:
                         undownloaded_vids_urls.popleft()
-                        i = -1
+                        i = -4
+                        raise DowloadErr
                 else:
                     undownloaded_vids_urls.popleft()
-                    i = -1
+                    i = -4
         elif choice == "Return":
             undownloaded_vids_urls.clear()
             return
@@ -121,9 +140,7 @@ class Downloader:
                 continue
             langs.update({capt.name: capt.code})
         if len(langs) > 0:
-            lang = pyip.inputMenu(
-                list(langs), "Choose a language: \n", numbered=True
-            )
+            lang = pyip.inputMenu(list(langs), "Choose a language: \n", numbered=True)
             return langs[lang]
         return False
 
@@ -137,20 +154,36 @@ class Downloader:
             default = "" for downloading one video
         """
         yt = YouTube(url, on_progress_callback=self.__progress_function)
-        yt.streams.filter(progressive=True, file_extension="mp4").all()
-        stream = yt.streams.get_by_resolution(quality)
+        title = self.__check_invalid_title(yt.title)
+        stream = yt.streams.filter(resolution=quality).first()
         if not stream:
             undownloaded_vids_urls.append([url, i])
             print(
-                f"Could not download video: {yt.title}. Quality {quality} not available."
+                f"Could not download video: {title}. Quality {quality} not available."
             )
             return 1
 
         self.__show_info(yt, 1, quality)
         stream.download(
-            output_path=save_path, filename_prefix="" if i == "" else f"{i} "
+            output_path=save_path,
+            filename=f"{title}.mp4",
+            filename_prefix="" if i == "" else f"{i} ",
         )
+
+        if self.quality_int > 720:
+            self.__download_1080p_or_higher(yt, title, save_path)
+
         return 2
+
+    def __download_1080p_or_higher(self, yt, title, save_path):
+        yt.streams.filter(only_audio=True).first().download(save_path, f"{title}.mp3")
+        video_file = input(join(save_path, f"{title}.mp4"))
+        audio_file = input(join(save_path, f"{title}.mp3"))
+        concat(video_file, audio_file, v=1, a=1).output(
+            join(save_path, f"{title} .mp4")
+        ).run()
+        remove(join(save_path, f"{title}.mp4"))
+        remove(join(save_path, f"{title}.mp3"))
 
     def Playlist_downlaoder(self, url, quality, save_path):
         """
@@ -165,13 +198,7 @@ class Downloader:
             self.Video_downloader(yt.video_urls[0], quality, save_path, i=1)
             return
 
-        print(
-            f"""
-            Number of videos: {yt.length}
-            Total number of views: {yt.views}
-            Last updated: {yt.last_updated}
-        """
-        )
+        self.__show_info(yt, 2)
 
         higher_range = ""
         lower_range = 1
@@ -233,7 +260,9 @@ class Downloader:
                 try:
                     rename(oldname, newname)
                 except (WindowsError, OSError, IOError):
-                    raise DowloadErr("Could not rename the file. Maybe, the file already exists. Rename it manually.")
+                    raise DowloadErr(
+                        "Could not rename the file. Maybe, the file already exists. Rename it manually."
+                    )
 
     def extract_audio(self, url, save_path):
         """
@@ -245,10 +274,10 @@ class Downloader:
         stream = yt.streams.get_by_itag(251)
         self.__show_info(yt, 3)
         print(f"Downloading audio: {yt.title}")
-        stream.download(output_path=save_path)
+        stream.download(save_path, f"{yt.title}.mp3")
 
     def converter(self, file_path, file_name):
-        """ convert mp4 or mkv to mp3 """
+        """convert mp4 or mkv to mp3"""
         clip = movie.VideoFileClip(file_path)
         save_file = fd.askdirectory(title="Save")
         clip.audio.write_audiofile(f"{save_file}/{file_name}.mp3")

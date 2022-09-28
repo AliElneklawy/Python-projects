@@ -68,5 +68,5 @@ while True:
         sleep(2)
         system("cls")
 
-    except DowloadErr as error:
-        print(error)
+    except (DowloadErr, KeyError):
+        print("Something went wrong. Maybe the quality you chose isn't available. Please try again")
